@@ -136,9 +136,9 @@ def train_strategic_agent(episodes=3000, archive_interval=500):
     print(f"   Center preference: {center_tests}/20 ({center_tests/20*100:.0f}%)")
     print(f"   Strategic moves: {strategic_tests}/20 ({strategic_tests/20*100:.0f}%)")
     
-    # Save model
-    agent.save('models/strategic_showcase_final.pt')
-    print(f"\n💾 Model saved as: models/strategic_showcase_final.pt")
+    # Save model with descriptive name
+    agent.save(f'models/strategic_dqn_{episodes}ep.pt')
+    print(f"\n💾 Strategic model saved as: models/strategic_dqn_{episodes}ep.pt")
     
     # Create visualization
     create_strategic_visualization(center_moves, corner_moves, strategic_moves, rewards_per_episode, win_rates)
@@ -224,7 +224,7 @@ def main():
     print(f"   from src.ai.agent import DQNAgent")
     print(f"   from src.game.tictactoe import TicTacToe")
     print(f"   agent = DQNAgent(epsilon=0)")
-    print(f"   agent.load('models/strategic_showcase_final.pt')")
+    print(f"   agent.load('models/strategic_dqn_{episodes}ep.pt')")
     print(f"   game = TicTacToe()")
     print(f"   print('First move:', agent.choose_action(game.get_state(), game.get_valid_moves()))")
     print(f"   \"")

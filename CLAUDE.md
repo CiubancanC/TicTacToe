@@ -26,17 +26,22 @@ This is a Tic Tac Toe game with multiple AI implementations. The project feature
 - `src/main.py`: Main script with game modes and training loop
 
 ### Scripts and Utilities
-- `run_game.py`: Main launcher script with mode selection
+- `run_game.py`: **ENHANCED** Interactive showcase with AI vs AI battles
 - `scripts/train_improved_ai.py`: Script to train the original DQN agent
 - `scripts/train_enhanced_ai.py`: **NEW** Enhanced training with strategic rewards & self-play archives
+- `scripts/train_strategic_showcase.py`: **NEW** Focused strategic training demonstration
 - `scripts/test_enhanced_features.py`: Quick test script for enhanced features
+- `scripts/ai_battle.py`: **NEW** Quick AI tournament and model comparison
+- `scripts/evaluate_enhanced_ai.py`: **NEW** Strategic capability testing
 - `scripts/play_vs_ai.py`: Script to play against the trained DQN AI
 - `scripts/play_vs_perfect_ai.py`: Script to play against the perfect Minimax AI
 
 ### Data and Documentation
-- `models/`: Directory where trained models are saved (keeps latest 3 + final)
+- `models/`: Directory where trained models are saved with **method annotations**
 - `visualizations/`: Training plots and performance charts
 - `docs/`: Additional documentation and README variants
+  - `MODEL_ANNOTATIONS.md`: **NEW** Complete guide to training method naming system
+- **🏷️ Model Naming**: Enhanced system clearly identifies training methods
 
 ## Common Commands
 
@@ -65,6 +70,7 @@ python3 run_game.py
 Features:
 - 🤖 **Training Options**: Original DQN, Enhanced DQN, Quick test
 - 🎯 **Play vs AI**: Select from trained models, Perfect Minimax AI  
+- ⚔️ **AI vs AI Battles**: DQN tournaments, DQN vs Minimax competitions
 - 👥 **Human Modes**: Human vs Human, Model comparison
 - 📊 **Model Management**: List, select, and compare different trained models
 
@@ -84,6 +90,9 @@ python3 scripts/train_enhanced_ai.py
 
 # Quick test of enhanced features
 python3 scripts/test_enhanced_features.py
+
+# AI vs AI battles
+python3 scripts/ai_battle.py
 ```
 
 4. **Play against the trained DQN AI**:

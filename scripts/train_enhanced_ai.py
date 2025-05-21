@@ -29,8 +29,11 @@ def train_enhanced_ai():
     end_time = time.time()
     training_time = end_time - start_time
     
+    # Save enhanced model with descriptive name
+    agent.save("models/enhanced_dqn_15k.pt")
+    
     print(f"\n🎉 Training completed in {training_time:.2f} seconds ({training_time/60:.1f} minutes)")
-    print("📁 Model saved as models/dqn_agent_final.pt")
+    print("📁 Enhanced model saved as models/enhanced_dqn_15k.pt")
     
     # Enhanced visualization
     if hasattr(agent, 'loss_history') and len(agent.loss_history) > 0:
