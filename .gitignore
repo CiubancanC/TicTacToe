@@ -1,0 +1,44 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# PyCharm, VS Code
+.idea/
+.vscode/
+
+# Model files (keep only final and latest)
+models/dqn_agent_episode_*.pt
+!models/dqn_agent_final.pt
+!models/dqn_agent_episode_20200.pt
+
+# Generated files
+*.log
+
+# Training visualizations (optional - keep for documentation)
+# *.png
+
+# Mac OS specific
+.DS_Store
+
+# Temporary files
+*.swp
+*.swo
+.pytest_cache/
+.coverage
+
+# Environment variables
+.env
