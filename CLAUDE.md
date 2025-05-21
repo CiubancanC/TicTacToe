@@ -27,7 +27,9 @@ This is a Tic Tac Toe game with multiple AI implementations. The project feature
 
 ### Scripts and Utilities
 - `run_game.py`: Main launcher script with mode selection
-- `scripts/train_improved_ai.py`: Script to train the improved DQN agent
+- `scripts/train_improved_ai.py`: Script to train the original DQN agent
+- `scripts/train_enhanced_ai.py`: **NEW** Enhanced training with strategic rewards & self-play archives
+- `scripts/test_enhanced_features.py`: Quick test script for enhanced features
 - `scripts/play_vs_ai.py`: Script to play against the trained DQN AI
 - `scripts/play_vs_perfect_ai.py`: Script to play against the perfect Minimax AI
 
@@ -56,19 +58,32 @@ There are several ways to run the game:
 python3 src/main.py
 ```
 
-2. **Use the run_game.py script with different modes**:
+2. **Use the interactive run_game.py menu** (recommended):
+```bash
+python3 run_game.py
+```
+Features:
+- 🤖 **Training Options**: Original DQN, Enhanced DQN, Quick test
+- 🎯 **Play vs AI**: Select from trained models, Perfect Minimax AI  
+- 👥 **Human Modes**: Human vs Human, Model comparison
+- 📊 **Model Management**: List, select, and compare different trained models
+
+Or use legacy command line modes:
 ```bash
 python3 run_game.py [mode]
 ```
-Modes:
-- 1: Train AI agent (DQN)
-- 2: Play against DQN AI
-- 3: Human vs Human
-- 4: Play against Perfect AI (Minimax)
+Legacy modes: 1 (Train), 2 (Play vs DQN), 3 (Human vs Human), 4 (Play vs Minimax)
 
-3. **Train the improved DQN AI**:
+3. **Train the DQN AI** (choose one):
 ```bash
+# Original DQN training
 python3 scripts/train_improved_ai.py
+
+# Enhanced DQN with strategic rewards & self-play archives
+python3 scripts/train_enhanced_ai.py
+
+# Quick test of enhanced features
+python3 scripts/test_enhanced_features.py
 ```
 
 4. **Play against the trained DQN AI**:
@@ -85,13 +100,31 @@ python3 scripts/play_vs_perfect_ai.py
 
 #### DQN Reinforcement Learning Agent
 
-The improved DQN agent uses these hyperparameters:
+The enhanced DQN agent includes:
+
+**Core Hyperparameters:**
 - Learning rate: 0.0005 with adaptive scheduling
 - Batch size: 128
 - Epsilon decay: 0.997 (slower exploration decay)
 - Gamma (discount factor): 0.99
 - Target network update frequency: Every 5 steps
 - Prioritized replay with alpha=0.6, beta=0.4
+
+**🆕 Enhanced Reward Engineering:**
+- **Win rewards**: 10 (vs previous 1) - encourages aggressive winning
+- **Draw rewards**: 1 (vs previous 0.5) - values defensive play
+- **Strategic move bonuses**: 
+  - Center control: +0.5
+  - Corner control: +0.3
+  - Fork creation: +2.0 (two ways to win)
+  - Blocking opponent wins: +1.5
+  - Creating win threats: +1.0
+
+**🆕 Self-Play with Historical Archives:**
+- Maintains up to 5 historical opponent models
+- Gradually increases historical opponent usage (30% → 70%)
+- Weighted selection favoring recent opponents
+- Archives models every 1000 episodes
 
 #### Minimax Perfect AI
 

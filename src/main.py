@@ -23,11 +23,13 @@ def train_agent(num_episodes=5000, save_interval=500):
     win_history = []
     draw_history = []
     loss_history = []
+    archive_interval = 1000  # Archive model every 1000 episodes
     
     for episode in range(num_episodes):
         state = game.reset()
         total_reward = 0
         done = False
+        use_historical_opponent = agent.should_use_historical_opponent(episode)
         
         while not done:
             valid_moves = game.get_valid_moves()
@@ -36,7 +38,8 @@ def train_agent(num_episodes=5000, save_interval=500):
             if action is None:
                 break
                 
-            next_state, reward, done = game.make_move(action)
+            # Use advanced rewards for better learning
+            next_state, reward, done = game.make_move(action, use_advanced_rewards=True)
             total_reward += reward
             
             agent.remember(state, action, reward, next_state, done)
@@ -44,17 +47,25 @@ def train_agent(num_episodes=5000, save_interval=500):
             
             state = next_state
             
-            # If playing against itself, let the agent play as the opponent too
+            # Opponent's turn - use historical opponent or self-play
             if not done:
                 valid_moves = game.get_valid_moves()
-                action = agent.choose_action(state, valid_moves)
                 
-                if action is None:
+                if use_historical_opponent and agent.historical_opponents:
+                    # Play against historical version
+                    opponent_action = agent.get_historical_opponent_action(state, valid_moves)
+                else:
+                    # Self-play
+                    opponent_action = agent.choose_action(state, valid_moves)
+                
+                if opponent_action is None:
                     break
                     
-                next_state, reward, done = game.make_move(action)
-                # We negate the reward here because agent is now playing as opponent
-                agent.remember(state, action, -reward, next_state, done)
+                next_state, reward, done = game.make_move(opponent_action, use_advanced_rewards=True)
+                
+                # Store opponent experience with negated reward (from agent's perspective)
+                if not use_historical_opponent:
+                    agent.remember(state, opponent_action, -reward, next_state, done)
                 
                 state = next_state
                 
@@ -75,12 +86,17 @@ def train_agent(num_episodes=5000, save_interval=500):
             draw_history.append(1)
             loss_history.append(0)
             
+        # Archive model periodically for historical opponents
+        if (episode + 1) % archive_interval == 0:
+            agent.archive_current_model()
+        
         # Print progress
         if (episode + 1) % 100 == 0:
             win_rate = sum(win_history[-100:])
             draw_rate = sum(draw_history[-100:])
             loss_rate = sum(loss_history[-100:])
-            print(f"Episode: {episode + 1}, Win: {win_rate}%, Draw: {draw_rate}%, Loss: {loss_rate}%, Epsilon: {agent.epsilon:.4f}")
+            historical_info = f", Historical Opponents: {len(agent.historical_opponents)}" if agent.historical_opponents else ""
+            print(f"Episode: {episode + 1}, Win: {win_rate}%, Draw: {draw_rate}%, Loss: {loss_rate}%, Epsilon: {agent.epsilon:.4f}{historical_info}")
             
         # Save model periodically
         if (episode + 1) % save_interval == 0:

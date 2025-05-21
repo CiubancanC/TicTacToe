@@ -1,169 +1,237 @@
+#!/usr/bin/env python3
 import sys
+import os
+import glob
+import subprocess
+import tempfile
 sys.path.append('.')
 from src.main import train_agent, human_vs_ai
 
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python run_game.py [mode]")
-        print("Modes:")
-        print("  1 - Train AI agent")
-        print("  2 - Play against DQN AI")
-        print("  3 - Human vs Human")
-        print("  4 - Play against Perfect AI (Minimax)")
-        sys.exit(1)
-        
-    mode = sys.argv[1]
+def display_menu():
+    """Display the main menu with all available options"""
+    print("\n" + "="*60)
+    print("🎮 TIC TAC TOE - AI SHOWCASE")
+    print("="*60)
+    print()
+    print("🤖 TRAINING OPTIONS:")
+    print("  1 - Train Original DQN AI (standard self-play)")
+    print("  2 - Train Enhanced DQN AI (strategic rewards + archives)")
+    print("  3 - Quick test Enhanced features (500 episodes)")
+    print()
+    print("🎯 PLAY AGAINST AI:")
+    print("  4 - Play vs DQN AI (select trained model)")
+    print("  5 - Play vs Perfect Minimax AI (unbeatable)")
+    print()
+    print("👥 HUMAN MODES:")
+    print("  6 - Human vs Human")
+    print("  7 - Compare AI Models (performance stats)")
+    print()
+    print("  0 - Exit")
+    print("="*60)
+
+def list_available_models():
+    """List all available trained models"""
+    models_dir = "models"
+    if not os.path.exists(models_dir):
+        return []
     
-    if mode == "1":
-        print("Training AI agent with improved architecture...")
-        print("This will train the agent with Double DQN and Prioritized Experience Replay")
-        train_agent(num_episodes=10000)  # Using our improved agent
-        print("Training complete!")
-    elif mode == "2":
-        print("Starting Human vs DQN AI game...")
-        human_vs_ai("models/dqn_agent_final.pt")  # Using our improved trained AI
-    elif mode == "3":
-        print("Starting Human vs Human game...")
-        # Import TicTacToeGUI and run the human vs human game
-        from src.game.tictactoe import TicTacToeGUI
-        gui = TicTacToeGUI()
-        gui.run_human_vs_human()
-    elif mode == "4":
-        print("Starting Human vs Perfect AI game (Minimax algorithm)...")
-        print("This AI uses the minimax algorithm with alpha-beta pruning.")
-        print("It will never lose and will always win when possible!")
-        # Import the perfect AI game
-        from src.ai.minimax import MinimaxAgent
-        import pygame
-        import time
-        from src.game.tictactoe import TicTacToe
-        
-        # Setup the game
-        pygame.init()
-        width, height = 600, 600
-        screen = pygame.display.set_mode((width, height))
-        pygame.display.set_caption("Tic Tac Toe - Human vs Perfect AI")
-        
-        game = TicTacToe()
-        agent = MinimaxAgent()
-        
-        cell_size = width // 3
-        line_width = 15
-        mark_width = 20
-        margin = 50
-        
-        def draw_board():
-            screen.fill((255, 255, 255))
+    models = []
+    # Look for final models first
+    if os.path.exists(f"{models_dir}/dqn_agent_final.pt"):
+        models.append(("Final Model", f"{models_dir}/dqn_agent_final.pt"))
+    
+    # Look for episode checkpoints
+    episode_models = glob.glob(f"{models_dir}/dqn_agent_episode_*.pt")
+    episode_models.sort(key=lambda x: int(x.split('_')[-1].split('.')[0]), reverse=True)
+    
+    for model_path in episode_models[:5]:  # Show top 5 most recent
+        episode_num = model_path.split('_')[-1].split('.')[0]
+        models.append((f"Episode {episode_num}", model_path))
+    
+    return models
+
+def select_model():
+    """Allow user to select which model to play against"""
+    models = list_available_models()
+    
+    if not models:
+        print("❌ No trained models found!")
+        print("🔧 Train a model first using options 1, 2, or 3")
+        return None
+    
+    print("\n📁 Available Trained Models:")
+    print("-" * 40)
+    for i, (name, path) in enumerate(models, 1):
+        file_size = os.path.getsize(path) / 1024  # KB
+        print(f"  {i}. {name} ({file_size:.1f} KB)")
+    
+    try:
+        choice = int(input("\nSelect model (number): ")) - 1
+        if 0 <= choice < len(models):
+            return models[choice][1]
+        else:
+            print("❌ Invalid selection")
+            return None
+    except ValueError:
+        print("❌ Please enter a valid number")
+        return None
+
+def train_original_dqn():
+    """Train original DQN with standard self-play"""
+    print("\n🔬 Training Original DQN AI")
+    print("Features: Double DQN, Prioritized Replay, Self-play")
+    episodes = int(input("Enter number of episodes (default 5000): ") or "5000")
+    
+    print(f"\n🚀 Starting original DQN training for {episodes} episodes...")
+    agent = train_agent(num_episodes=episodes)
+    print("✅ Original DQN training complete!")
+    return agent
+
+def train_enhanced_dqn():
+    """Train enhanced DQN with strategic rewards and archives"""
+    print("\n🎯 Training Enhanced DQN AI")
+    print("Features: Strategic rewards, Historical opponents, Advanced self-play")
+    episodes = int(input("Enter number of episodes (default 10000): ") or "10000")
+    
+    print(f"\n🚀 Starting enhanced DQN training for {episodes} episodes...")
+    print("📊 This includes strategic move bonuses and historical opponent archives")
+    
+    # Enhanced training using imported modules
+    
+    # Create temporary enhanced training script
+    enhanced_script = f"""
+import sys
+sys.path.append('.')
+from src.main import train_agent
+import time
+
+print("🤖 Enhanced DQN Training Started")
+start_time = time.time()
+agent = train_agent(num_episodes={episodes}, save_interval=max(500, {episodes}//10))
+end_time = time.time()
+print(f"✅ Enhanced training completed in {{(end_time-start_time)/60:.1f}} minutes")
+print(f"📊 Historical opponents: {{len(agent.historical_opponents)}}")
+"""
+    
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+        f.write(enhanced_script)
+        temp_script = f.name
+    
+    try:
+        subprocess.run([sys.executable, temp_script], check=True)
+        print("✅ Enhanced DQN training complete!")
+    finally:
+        os.unlink(temp_script)
+
+def quick_test_enhanced():
+    """Quick test of enhanced features"""
+    print("\n🧪 Quick Test of Enhanced Features")
+    print("Running 500 episodes to demonstrate enhanced training...")
+    
+    try:
+        subprocess.run([sys.executable, "scripts/test_enhanced_features.py"], check=True)
+    except FileNotFoundError:
+        print("❌ Test script not found. Running inline test...")
+        agent = train_agent(num_episodes=500, save_interval=200)
+        print(f"✅ Quick test complete! Historical opponents: {len(agent.historical_opponents)}")
+
+def play_vs_dqn():
+    """Play against trained DQN AI"""
+    model_path = select_model()
+    if model_path:
+        print(f"\n🎮 Starting game with {os.path.basename(model_path)}...")
+        human_vs_ai(model_path)
+
+def play_vs_minimax():
+    """Play against perfect Minimax AI"""
+    print("\n⚔️  Playing against Perfect Minimax AI")
+    print("⚠️  Warning: This AI never loses and always wins when possible!")
+    
+    try:
+        subprocess.run([sys.executable, "scripts/play_vs_perfect_ai.py"], check=True)
+    except FileNotFoundError:
+        print("❌ Perfect AI script not found")
+
+def human_vs_human():
+    """Human vs Human mode"""
+    print("\n👥 Starting Human vs Human game...")
+    from src.game.tictactoe import TicTacToeGUI
+    gui = TicTacToeGUI()
+    gui.run_human_vs_human()
+
+def compare_models():
+    """Compare performance of different AI models"""
+    models = list_available_models()
+    if len(models) < 2:
+        print("❌ Need at least 2 models to compare")
+        return
+    
+    print("\n📊 AI Model Comparison")
+    print("-" * 50)
+    print("Available models:")
+    for i, (name, path) in enumerate(models, 1):
+        file_size = os.path.getsize(path) / 1024
+        mod_time = os.path.getmtime(path)
+        import datetime
+        mod_date = datetime.datetime.fromtimestamp(mod_time).strftime("%Y-%m-%d %H:%M")
+        print(f"  {i}. {name} - {file_size:.1f}KB - {mod_date}")
+    
+    print("\n💡 To compare models, play against each one and observe:")
+    print("   • Aggressiveness vs defensive play")
+    print("   • Strategic positioning (center/corners)")
+    print("   • Win/draw/loss patterns")
+
+def main():
+    """Main menu loop"""
+    while True:
+        try:
+            display_menu()
+            choice = input("Enter your choice (0-7): ").strip()
             
-            # Draw grid lines
-            for i in range(1, 3):
-                # Vertical lines
-                pygame.draw.line(screen, (0, 0, 0), (i * cell_size, 0), (i * cell_size, height), line_width)
-                # Horizontal lines
-                pygame.draw.line(screen, (0, 0, 0), (0, i * cell_size), (width, i * cell_size), line_width)
-                
-            # Draw X and O
-            for i in range(3):
-                for j in range(3):
-                    center_x = j * cell_size + cell_size // 2
-                    center_y = i * cell_size + cell_size // 2
-                    
-                    if game.board[i, j] == 1:  # X (Human)
-                        pygame.draw.line(
-                            screen, 
-                            (255, 0, 0), 
-                            (center_x - cell_size // 2 + margin, center_y - cell_size // 2 + margin), 
-                            (center_x + cell_size // 2 - margin, center_y + cell_size // 2 - margin), 
-                            mark_width
-                        )
-                        pygame.draw.line(
-                            screen, 
-                            (255, 0, 0), 
-                            (center_x - cell_size // 2 + margin, center_y + cell_size // 2 - margin), 
-                            (center_x + cell_size // 2 - margin, center_y - cell_size // 2 + margin), 
-                            mark_width
-                        )
-                    elif game.board[i, j] == -1:  # O (AI)
-                        pygame.draw.circle(
-                            screen, 
-                            (0, 0, 255), 
-                            (center_x, center_y), 
-                            cell_size // 2 - margin, 
-                            mark_width
-                        )
-        
-        def display_message(message):
-            font = pygame.font.Font(None, 30)
-            text = font.render(message, True, (0, 0, 0))
-            text_rect = text.get_rect(center=(width // 2, height - 30))
-            screen.blit(text, text_rect)
-        
-        running = True
-        game_state = "playing"  # "playing", "game_over"
-        
-        # Human goes first
-        human_turn = True
-        
-        while running:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
-                
-                if event.type == pygame.MOUSEBUTTONDOWN:
-                    if game_state == "game_over":
-                        game.reset()
-                        game_state = "playing"
-                        human_turn = True
-                    elif human_turn:
-                        # Human's turn
-                        x, y = event.pos
-                        j = x // cell_size
-                        i = y // cell_size
-                        
-                        if 0 <= i < 3 and 0 <= j < 3 and game.board[i, j] == 0:
-                            next_state, reward, done = game.make_move((i, j))
-                            
-                            if done:
-                                game_state = "game_over"
-                            else:
-                                human_turn = False
-            
-            # AI's turn
-            if not human_turn and game_state == "playing":
-                time.sleep(0.5)  # Add a slight delay for better UX
-                state = game.get_state()
-                valid_moves = game.get_valid_moves()
-                
-                if valid_moves:
-                    ai_action = agent.choose_action(state, valid_moves)
-                    next_state, reward, done = game.make_move(ai_action)
-                    
-                    if done:
-                        game_state = "game_over"
-                    else:
-                        human_turn = True
-                else:
-                    game_state = "game_over"
-            
-            # Drawing
-            draw_board()
-            
-            if game_state == "playing":
-                if human_turn:
-                    display_message("Your turn (X)")
-                else:
-                    display_message("AI thinking... (O)")
+            if choice == '0':
+                print("👋 Thanks for playing!")
+                break
+            elif choice == '1':
+                train_original_dqn()
+            elif choice == '2':
+                train_enhanced_dqn()
+            elif choice == '3':
+                quick_test_enhanced()
+            elif choice == '4':
+                play_vs_dqn()
+            elif choice == '5':
+                play_vs_minimax()
+            elif choice == '6':
+                human_vs_human()
+            elif choice == '7':
+                compare_models()
             else:
-                result = game.get_result()
-                if result == 1:
-                    display_message("You win! Click to play again.")
-                elif result == -1:
-                    display_message("AI wins! Click to play again.")
-                else:
-                    display_message("It's a draw! Click to play again.")
-            
-            pygame.display.flip()
+                print("❌ Invalid choice. Please enter a number from 0-7.")
+                
+        except KeyboardInterrupt:
+            print("\n\n👋 Goodbye!")
+            break
+        except Exception as e:
+            print(f"❌ Error: {e}")
+            print("Please try again.")
+
+if __name__ == "__main__":
+    # Support both old command line interface and new interactive menu
+    if len(sys.argv) >= 2:
+        print("🔄 Legacy mode detected. Use interactive menu for full features.")
+        mode = sys.argv[1]
         
-        pygame.quit()
+        if mode == "1":
+            train_original_dqn()
+        elif mode == "2":
+            play_vs_dqn()
+        elif mode == "3":
+            human_vs_human()
+        elif mode == "4":
+            play_vs_minimax()
+        else:
+            print(f"❌ Invalid mode: {mode}")
+            print("Use interactive menu for full features:")
+            main()
     else:
-        print(f"Invalid mode: {mode}")
+        main()

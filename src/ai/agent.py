@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import random
+import os
+import copy
 from collections import deque
 
 class DQN(nn.Module):
@@ -140,6 +142,11 @@ class DQNAgent:
         # Track metrics for monitoring learning
         self.loss_history = []
         
+        # Self-play with historical opponents
+        self.historical_opponents = []
+        self.max_historical_opponents = 5
+        self.opponent_selection_weights = [0.4, 0.3, 0.15, 0.1, 0.05]  # Favor recent opponents
+        
     def board_to_state(self, board):
         return torch.FloatTensor(board.flatten()).unsqueeze(0).to(self.device)
         
@@ -244,5 +251,62 @@ class DQNAgent:
         torch.save(self.model.state_dict(), filename)
         
     def load(self, filename):
-        self.model.load_state_dict(torch.load(filename))
+        self.model.load_state_dict(torch.load(filename, map_location=self.device))
         self.target_model.load_state_dict(self.model.state_dict())
+    
+    def archive_current_model(self):
+        """Save current model as historical opponent"""
+        if len(self.historical_opponents) >= self.max_historical_opponents:
+            # Remove oldest opponent
+            self.historical_opponents.pop(0)
+        
+        # Create deep copy of current model
+        archived_model = DQN().to(self.device)
+        archived_model.load_state_dict(copy.deepcopy(self.model.state_dict()))
+        archived_model.eval()
+        
+        self.historical_opponents.append(archived_model)
+        print(f"Archived model. Total historical opponents: {len(self.historical_opponents)}")
+    
+    def get_historical_opponent_action(self, state, valid_moves, opponent_index=None):
+        """Get action from a historical opponent"""
+        if not self.historical_opponents:
+            return random.choice(valid_moves)
+        
+        if opponent_index is None:
+            # Select opponent based on weighted probabilities (favor recent)
+            available_weights = self.opponent_selection_weights[:len(self.historical_opponents)]
+            available_weights = [w / sum(available_weights) for w in available_weights]  # Normalize
+            opponent_index = np.random.choice(len(self.historical_opponents), p=available_weights)
+        
+        opponent_model = self.historical_opponents[min(opponent_index, len(self.historical_opponents) - 1)]
+        
+        state_tensor = self.board_to_state(state)
+        with torch.no_grad():
+            q_values = opponent_model(state_tensor).cpu().numpy()[0]
+            
+        # Filter for valid moves only
+        valid_actions = [self.position_to_action(move) for move in valid_moves]
+        best_action = valid_actions[0]
+        best_value = q_values[best_action]
+        
+        for action in valid_actions[1:]:
+            if q_values[action] > best_value:
+                best_value = q_values[action]
+                best_action = action
+                
+        return self.action_to_position(best_action)
+    
+    def should_use_historical_opponent(self, episode):
+        """Determine if we should use historical opponent based on training progress"""
+        # Start using historical opponents after some initial training
+        if episode < 200:
+            return False
+        
+        # Gradually increase probability of using historical opponents
+        if episode < 1000:
+            return np.random.random() < 0.3  # 30% chance
+        elif episode < 3000:
+            return np.random.random() < 0.5  # 50% chance  
+        else:
+            return np.random.random() < 0.7  # 70% chance
