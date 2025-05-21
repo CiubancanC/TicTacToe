@@ -123,33 +123,56 @@ def minimax(board, depth, is_maximizing, alpha=-float('inf'), beta=float('inf'))
                 
         return best
 
-def find_best_move(board):
+def find_best_move(board, player=1):
     """
-    Find the optimal move for the AI using minimax algorithm.
+    Find the optimal move for the specified player using minimax algorithm.
     
     Args:
         board: 3x3 numpy array representing the board state
+        player: Which player to optimize for (1 for X, -1 for O)
         
     Returns:
         (row, col) tuple representing the best move
     """
-    best_val = -float('inf')
-    best_move = (-1, -1)
-    
-    for move in get_empty_cells(board):
-        # Make the move
-        board[move[0], move[1]] = 1
+    if player == 1:
+        # Maximize for player 1 (X)
+        best_val = -float('inf')
+        best_move = (-1, -1)
         
-        # Compute score for this move
-        move_val = minimax(board, 0, False)
+        for move in get_empty_cells(board):
+            # Make the move
+            board[move[0], move[1]] = 1
+            
+            # Compute score for this move
+            move_val = minimax(board, 0, False)
+            
+            # Undo the move
+            board[move[0], move[1]] = 0
+            
+            # Update the best move if needed
+            if move_val > best_val:
+                best_move = move
+                best_val = move_val
+                
+    else:  # player == -1
+        # Maximize for player -1 (O) - this means minimizing the original score
+        best_val = float('inf')
+        best_move = (-1, -1)
         
-        # Undo the move
-        board[move[0], move[1]] = 0
-        
-        # Update the best move if needed
-        if move_val > best_val:
-            best_move = move
-            best_val = move_val
+        for move in get_empty_cells(board):
+            # Make the move
+            board[move[0], move[1]] = -1
+            
+            # Compute score for this move (from player 1 perspective)
+            move_val = minimax(board, 0, True)
+            
+            # Undo the move
+            board[move[0], move[1]] = 0
+            
+            # For player -1, we want the minimum score (best for -1)
+            if move_val < best_val:
+                best_move = move
+                best_val = move_val
     
     return best_move
 
@@ -159,9 +182,13 @@ class MinimaxAgent:
     Follows the same interface as the DQNAgent for easy integration.
     """
     
-    def __init__(self):
-        """Initialize the agent"""
-        pass
+    def __init__(self, player=None):
+        """Initialize the agent
+        
+        Args:
+            player: Which player this agent represents (1 for X, -1 for O, None for auto-detect)
+        """
+        self.player = player
     
     def choose_action(self, state, valid_moves):
         """
@@ -176,8 +203,20 @@ class MinimaxAgent:
         """
         if not valid_moves:
             return None
+        
+        # Auto-detect player if not set
+        if self.player is None:
+            # Count X's and O's to determine whose turn it is
+            x_count = np.count_nonzero(state == 1)
+            o_count = np.count_nonzero(state == -1)
             
-        return find_best_move(state)
+            # If equal counts, it's X's turn; if X has one more, it's O's turn
+            if x_count == o_count:
+                self.player = 1  # X's turn
+            else:
+                self.player = -1  # O's turn
+        
+        return find_best_move(state, self.player)
     
     def remember(self, state, action, reward, next_state, done):
         """
