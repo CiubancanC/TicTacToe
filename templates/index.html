@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TicTacToe vs AI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+
+        .game-menu {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .menu-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin: 20px auto;
+            max-width: 300px;
+        }
+
+        .cell {
+            aspect-ratio: 1;
+            background: #f7fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 48px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .cell:hover:not(.taken) {
+            background: #edf2f7;
+            border-color: #cbd5e0;
+            transform: scale(1.05);
+        }
+
+        .cell.taken {
+            cursor: not-allowed;
+        }
+
+        .cell.x {
+            color: #667eea;
+        }
+
+        .cell.o {
+            color: #f56565;
+        }
+
+        .status {
+            text-align: center;
+            margin: 20px 0;
+            font-size: 20px;
+            font-weight: 600;
+            min-height: 30px;
+        }
+
+        .status.winner {
+            color: #48bb78;
+        }
+
+        .status.loser {
+            color: #f56565;
+        }
+
+        .status.draw {
+            color: #ed8936;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .info {
+            text-align: center;
+            margin-top: 20px;
+            color: #718096;
+            font-size: 14px;
+        }
+
+        .play-choice {
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .choice-button {
+            margin: 0 10px;
+            padding: 15px 30px;
+            font-size: 18px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .choice-button:hover {
+            background: linear-gradient(135deg, #5a67d8 0%, #6b46a1 100%);
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .current-turn {
+            animation: pulse 1s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 TicTacToe vs AI 🤖</h1>
+        
+        <div id="game-menu" class="game-menu">
+            <div class="play-choice">
+                <p style="margin-bottom: 20px; font-size: 18px;">Choose your side:</p>
+                <button class="choice-button" onclick="startGame('X')">Play as X (Go First)</button>
+                <button class="choice-button" onclick="startGame('O')">Play as O (AI Goes First)</button>
+            </div>
+        </div>
+
+        <div id="game-board" class="hidden">
+            <div class="menu-buttons">
+                <button onclick="location.reload()">New Game</button>
+            </div>
+            
+            <div class="status" id="status"></div>
+            
+            <div class="board" id="board">
+                <div class="cell" data-index="0" onclick="makeMove(0)"></div>
+                <div class="cell" data-index="1" onclick="makeMove(1)"></div>
+                <div class="cell" data-index="2" onclick="makeMove(2)"></div>
+                <div class="cell" data-index="3" onclick="makeMove(3)"></div>
+                <div class="cell" data-index="4" onclick="makeMove(4)"></div>
+                <div class="cell" data-index="5" onclick="makeMove(5)"></div>
+                <div class="cell" data-index="6" onclick="makeMove(6)"></div>
+                <div class="cell" data-index="7" onclick="makeMove(7)"></div>
+                <div class="cell" data-index="8" onclick="makeMove(8)"></div>
+            </div>
+            
+            <div class="info" id="info"></div>
+        </div>
+    </div>
+
+    <script>
+        let gameState = {
+            humanLetter: null,
+            currentTurn: null,
+            gameOver: false
+        };
+
+        async function startGame(playAs) {
+            try {
+                const response = await fetch('/new_game', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ play_as: playAs })
+                });
+
+                const data = await response.json();
+                gameState.humanLetter = data.human_letter;
+                gameState.currentTurn = data.current_turn;
+                gameState.gameOver = false;
+
+                document.getElementById('game-menu').classList.add('hidden');
+                document.getElementById('game-board').classList.remove('hidden');
+                
+                updateBoard(data.board);
+                updateStatus();
+                updateInfo();
+            } catch (error) {
+                console.error('Error starting game:', error);
+                alert('Failed to start game. Please refresh the page.');
+            }
+        }
+
+        async function makeMove(square) {
+            if (gameState.gameOver || gameState.currentTurn !== gameState.humanLetter) {
+                return;
+            }
+
+            const cell = document.querySelector(`[data-index="${square}"]`);
+            if (cell.textContent !== '') {
+                return;
+            }
+
+            try {
+                const response = await fetch('/make_move', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ square: square })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    console.error('Move error:', error);
+                    return;
+                }
+
+                const data = await response.json();
+                updateBoard(data.board);
+                gameState.currentTurn = data.current_turn;
+                gameState.gameOver = data.game_over;
+
+                if (data.game_over) {
+                    handleGameEnd(data.winner, data.is_draw);
+                } else {
+                    updateStatus();
+                }
+            } catch (error) {
+                console.error('Error making move:', error);
+            }
+        }
+
+        function updateBoard(board) {
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach((cell, index) => {
+                cell.textContent = board[index] === ' ' ? '' : board[index];
+                cell.classList.remove('x', 'o', 'taken');
+                if (board[index] !== ' ') {
+                    cell.classList.add('taken');
+                    cell.classList.add(board[index].toLowerCase());
+                }
+            });
+        }
+
+        function updateStatus() {
+            const status = document.getElementById('status');
+            if (gameState.currentTurn === gameState.humanLetter) {
+                status.textContent = 'Your turn!';
+                status.className = 'status current-turn';
+            } else {
+                status.textContent = 'AI is thinking...';
+                status.className = 'status';
+            }
+        }
+
+        function updateInfo() {
+            const info = document.getElementById('info');
+            info.textContent = `You are playing as ${gameState.humanLetter}`;
+        }
+
+        function handleGameEnd(winner, isDraw) {
+            const status = document.getElementById('status');
+            status.classList.remove('current-turn');
+            
+            if (isDraw) {
+                status.textContent = "It's a draw! 🤝";
+                status.classList.add('draw');
+            } else if (winner === gameState.humanLetter) {
+                status.textContent = "You won! 🎉";
+                status.classList.add('winner');
+            } else {
+                status.textContent = "AI wins! 🤖";
+                status.classList.add('loser');
+            }
+        }
+
+        // Poll for game state updates when it's AI's turn
+        setInterval(async () => {
+            if (!gameState.gameOver && gameState.currentTurn && gameState.currentTurn !== gameState.humanLetter) {
+                try {
+                    const response = await fetch('/get_state');
+                    const data = await response.json();
+                    
+                    updateBoard(data.board);
+                    gameState.currentTurn = data.current_turn;
+                    gameState.gameOver = data.game_over;
+                    
+                    if (data.game_over) {
+                        handleGameEnd(data.winner, data.is_draw);
+                    } else {
+                        updateStatus();
+                    }
+                } catch (error) {
+                    console.error('Error polling state:', error);
+                }
+            }
+        }, 500);
+    </script>
+</body>
+</html>
