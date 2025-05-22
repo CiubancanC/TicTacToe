@@ -1,17 +1,18 @@
-#!/usr/bin/env python3
+`#!/usr/bin/env python3
 """
-TicTacToe AI - Complete Implementation
-=====================================
+TicTacToe AI - Improved Complete Implementation
+==============================================
 
-A streamlined TicTacToe game with AI training, playing, and analysis capabilities.
-Combines all functionality into a single, well-organized file.
+A robust TicTacToe game with AI training, playing, and analysis capabilities.
+Fixes major issues with perspective handling and training balance.
 
 Features:
-- Deep Q-Network (DQN) AI with balanced training (both X and O positions)
-- Perfect Minimax AI that never loses
+- Position-aware Deep Q-Network (DQN) AI with proper X/O handling
+- Perfect Minimax AI that can play as both X and O
 - Interactive gameplay modes
 - AI training and evaluation tools
 - Model comparison and analysis
+- Improved training diagnostics
 
 Usage:
     python3 tictactoe.py            # Interactive menu
@@ -35,9 +36,6 @@ import argparse
 import torch
 import torch.nn as nn
 import torch.optim as optim
-
-# Game imports
-import pygame
 
 
 # ==========================================
@@ -74,7 +72,7 @@ class TicTacToe:
             
         i, j = position
         if self.board[i, j] != 0:
-            return self.get_state(), -10, False  # Invalid move penalty
+            return self.get_state(), -1, False  # Invalid move penalty
             
         old_board = self.board.copy()
         self.board[i, j] = self.current_player
@@ -83,44 +81,48 @@ class TicTacToe:
         reward = 0
         done = False
         
-        # Check for win (rows, columns, diagonals)
-        win_conditions = [
-            # Rows
-            [self.board[0, :], self.board[1, :], self.board[2, :]],
-            # Columns  
-            [self.board[:, 0], self.board[:, 1], self.board[:, 2]],
-            # Diagonals
-            [np.array([self.board[0,0], self.board[1,1], self.board[2,2]]),
-             np.array([self.board[0,2], self.board[1,1], self.board[2,0]])]
-        ]
-        
-        for condition_set in win_conditions:
-            for condition in condition_set:
-                if np.sum(condition) == 3 * self.current_player:
-                    self.game_over = True
-                    self.winner = self.current_player
-                    reward = 10 if self.current_player == 1 else -10
-                    done = True
-                    break
-            if done:
-                break
-                
-        # Advanced reward shaping for strategic moves
-        if use_advanced_rewards and not done:
-            reward += self._calculate_strategic_reward(old_board, position, self.current_player)
-                
+        # Check for win
+        if self._check_win(self.current_player):
+            self.game_over = True
+            self.winner = self.current_player
+            reward = 1  # Win reward (always positive for the player who won)
+            done = True
         # Check for draw
-        if not self.game_over and len(self.get_valid_moves()) == 0:
+        elif len(self.get_valid_moves()) == 0:
             self.game_over = True
             self.winner = 0
-            reward = 1  # Draw reward
+            reward = 0  # Draw reward
             done = True
-            
+        else:
+            # Advanced reward shaping for strategic moves
+            if use_advanced_rewards:
+                reward = self._calculate_strategic_reward(old_board, position, self.current_player)
+        
         # Switch player
         if not self.game_over:
             self.current_player *= -1
             
         return self.get_state(), reward, done
+    
+    def _check_win(self, player):
+        """Check if the given player has won"""
+        # Check rows
+        for r in range(3):
+            if np.all(self.board[r, :] == player):
+                return True
+        
+        # Check columns
+        for c in range(3):
+            if np.all(self.board[:, c] == player):
+                return True
+        
+        # Check diagonals
+        if np.all([self.board[i, i] == player for i in range(3)]):
+            return True
+        if np.all([self.board[i, 2-i] == player for i in range(3)]):
+            return True
+        
+        return False
     
     def _calculate_strategic_reward(self, old_board, position, player):
         """Calculate strategic reward bonuses"""
@@ -129,26 +131,26 @@ class TicTacToe:
         
         # Center control bonus
         if i == 1 and j == 1:
-            reward += 0.5
+            reward += 0.1
         
         # Corner control bonus
         if (i, j) in [(0, 0), (0, 2), (2, 0), (2, 2)]:
-            reward += 0.3
+            reward += 0.05
             
         # Fork creation bonus (multiple ways to win)
         fork_opportunities = self._count_winning_lines(self.board, player)
         if fork_opportunities >= 2:
-            reward += 2.0
+            reward += 0.3
         elif fork_opportunities == 1:
-            reward += 0.5
+            reward += 0.1
             
         # Blocking opponent's win
         if self._blocks_immediate_win(old_board, position, -player):
-            reward += 1.5
+            reward += 0.2
             
-        # Creating win threat
-        if self._count_winning_lines(self.board, player) > 0:
-            reward += 1.0
+        # Creating immediate win threat
+        if self._creates_immediate_win(position, player):
+            reward += 0.2
             
         return reward
     
@@ -158,12 +160,14 @@ class TicTacToe:
         
         # Check rows
         for r in range(3):
-            if list(board[r, :]).count(player) == 2 and list(board[r, :]).count(0) == 1:
+            row = list(board[r, :])
+            if row.count(player) == 2 and row.count(0) == 1:
                 count += 1
                 
         # Check columns  
         for c in range(3):
-            if list(board[:, c]).count(player) == 2 and list(board[:, c]).count(0) == 1:
+            col = list(board[:, c])
+            if col.count(player) == 2 and col.count(0) == 1:
                 count += 1
                 
         # Check diagonals
@@ -179,21 +183,34 @@ class TicTacToe:
     
     def _blocks_immediate_win(self, old_board, position, opponent):
         """Check if move blocks opponent's immediate win"""
+        # Temporarily place opponent piece to test
         test_board = old_board.copy()
         test_board[position[0], position[1]] = opponent
+        return self._check_win_on_board(test_board, opponent)
+    
+    def _creates_immediate_win(self, position, player):
+        """Check if move creates immediate win for player"""
+        return self._check_win(player)
+    
+    def _check_win_on_board(self, board, player):
+        """Check if player has won on given board state"""
+        # Check rows
+        for r in range(3):
+            if np.all(board[r, :] == player):
+                return True
         
-        # Check if opponent would win
-        i, j = position
+        # Check columns
+        for c in range(3):
+            if np.all(board[:, c] == player):
+                return True
         
-        # Check row, column, diagonals
-        conditions = [
-            np.sum(test_board[i, :]) == 3 * opponent,
-            np.sum(test_board[:, j]) == 3 * opponent,
-            (i == j) and np.sum([test_board[k, k] for k in range(3)]) == 3 * opponent,
-            (i + j == 2) and np.sum([test_board[k, 2-k] for k in range(3)]) == 3 * opponent
-        ]
+        # Check diagonals
+        if np.all([board[i, i] == player for i in range(3)]):
+            return True
+        if np.all([board[i, 2-i] == player for i in range(3)]):
+            return True
         
-        return any(conditions)
+        return False
         
     def get_result(self):
         return self.winner
@@ -204,14 +221,24 @@ class TicTacToe:
 # ==========================================
 
 class MinimaxAgent:
-    """Perfect Minimax AI that never loses"""
+    """Perfect Minimax AI that can play as both X and O"""
     
-    def __init__(self):
-        pass
+    def __init__(self, player=None):
+        self.player = player  # 1 for X, -1 for O, None for adaptive
     
-    def choose_action(self, state, valid_moves):
+    def choose_action(self, state, valid_moves, as_player=None):
         if not valid_moves:
             return None
+        
+        # Determine which player we're playing as
+        if as_player is not None:
+            player = as_player
+        elif self.player is not None:
+            player = self.player
+        else:
+            # Auto-detect based on current game state
+            occupied_squares = np.count_nonzero(state)
+            player = 1 if occupied_squares % 2 == 0 else -1
         
         # Use minimax to find best move
         best_score = float('-inf')
@@ -220,9 +247,9 @@ class MinimaxAgent:
         for move in valid_moves:
             # Simulate move
             test_board = state.copy()
-            test_board[move[0], move[1]] = -1  # Minimax always plays as O
+            test_board[move[0], move[1]] = player
             
-            score = self._minimax(test_board, 0, False, float('-inf'), float('inf'))
+            score = self._minimax(test_board, 0, False, float('-inf'), float('inf'), player)
             
             if score > best_score:
                 best_score = score
@@ -230,9 +257,9 @@ class MinimaxAgent:
                 
         return best_move
     
-    def _minimax(self, board, depth, is_maximizing, alpha, beta):
+    def _minimax(self, board, depth, is_maximizing, alpha, beta, max_player):
         """Minimax algorithm with alpha-beta pruning"""
-        result = self._evaluate_board(board)
+        result = self._evaluate_board(board, max_player)
         
         if result is not None:
             return result
@@ -242,8 +269,8 @@ class MinimaxAgent:
             for i in range(3):
                 for j in range(3):
                     if board[i, j] == 0:
-                        board[i, j] = -1  # Minimax player
-                        eval_score = self._minimax(board, depth + 1, False, alpha, beta)
+                        board[i, j] = max_player
+                        eval_score = self._minimax(board, depth + 1, False, alpha, beta, max_player)
                         board[i, j] = 0
                         max_eval = max(max_eval, eval_score)
                         alpha = max(alpha, eval_score)
@@ -254,11 +281,12 @@ class MinimaxAgent:
             return max_eval
         else:
             min_eval = float('inf')
+            min_player = -max_player
             for i in range(3):
                 for j in range(3):
                     if board[i, j] == 0:
-                        board[i, j] = 1  # Opponent
-                        eval_score = self._minimax(board, depth + 1, True, alpha, beta)
+                        board[i, j] = min_player
+                        eval_score = self._minimax(board, depth + 1, True, alpha, beta, max_player)
                         board[i, j] = 0
                         min_eval = min(min_eval, eval_score)
                         beta = min(beta, eval_score)
@@ -268,90 +296,80 @@ class MinimaxAgent:
                     break
             return min_eval
     
-    def _evaluate_board(self, board):
+    def _evaluate_board(self, board, max_player):
         """Evaluate board position"""
         # Check for win conditions
         for player in [1, -1]:
-            # Rows
-            for r in range(3):
-                if np.sum(board[r, :]) == 3 * player:
-                    return 10 if player == -1 else -10
-            
-            # Columns
-            for c in range(3):
-                if np.sum(board[:, c]) == 3 * player:
-                    return 10 if player == -1 else -10
-            
-            # Diagonals
-            if np.sum([board[i, i] for i in range(3)]) == 3 * player:
-                return 10 if player == -1 else -10
-            if np.sum([board[i, 2-i] for i in range(3)]) == 3 * player:
-                return 10 if player == -1 else -10
+            if self._check_win_on_board(board, player):
+                if player == max_player:
+                    return 10
+                else:
+                    return -10
         
         # Check for draw
         if len([(i, j) for i in range(3) for j in range(3) if board[i, j] == 0]) == 0:
             return 0
         
         return None  # Game not over
+    
+    def _check_win_on_board(self, board, player):
+        """Check if player has won on given board state"""
+        # Check rows
+        for r in range(3):
+            if np.all(board[r, :] == player):
+                return True
+        
+        # Check columns
+        for c in range(3):
+            if np.all(board[:, c] == player):
+                return True
+        
+        # Check diagonals
+        if np.all([board[i, i] == player for i in range(3)]):
+            return True
+        if np.all([board[i, 2-i] == player for i in range(3)]):
+            return True
+        
+        return False
 
 
 # ==========================================
 # DEEP Q-NETWORK AI
 # ==========================================
 
-class DQN(nn.Module):
-    """Deep Q-Network for tic-tac-toe"""
+class PositionAwareDQN(nn.Module):
+    """Position-aware Deep Q-Network for tic-tac-toe"""
     
     def __init__(self):
-        super(DQN, self).__init__()
-        self.fc1 = nn.Linear(9, 256)
+        super(PositionAwareDQN, self).__init__()
+        # Input: 9 (board) + 1 (player position) = 10
+        self.fc1 = nn.Linear(10, 256)
         self.fc2 = nn.Linear(256, 256)
         self.fc3 = nn.Linear(256, 128)
         self.fc4 = nn.Linear(128, 9)
-        self.leaky_relu = nn.LeakyReLU(0.1)
-        self.bn1 = nn.BatchNorm1d(256)
-        self.bn2 = nn.BatchNorm1d(256)
-        self.bn3 = nn.BatchNorm1d(128)
-        self.dropout = nn.Dropout(0.2)
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(0.1)
         
     def forward(self, x):
-        batch_size = x.size(0)
-        x = x.view(-1, 9)
-        
-        x = self.fc1(x)
-        if batch_size > 1:
-            x = self.bn1(x)
-        x = self.leaky_relu(x)
+        x = self.relu(self.fc1(x))
         x = self.dropout(x)
-        
-        x = self.fc2(x)
-        if batch_size > 1:
-            x = self.bn2(x)
-        x = self.leaky_relu(x)
+        x = self.relu(self.fc2(x))
         x = self.dropout(x)
-        
-        x = self.fc3(x)
-        if batch_size > 1:
-            x = self.bn3(x)
-        x = self.leaky_relu(x)
-        
+        x = self.relu(self.fc3(x))
         x = self.fc4(x)
         return x
 
 
-class BalancedDQNAgent:
-    """DQN Agent that can play as both X and O using perspective flipping"""
+class ImprovedDQNAgent:
+    """Improved DQN Agent with position-aware input"""
     
-    def __init__(self, epsilon=1.0, epsilon_min=0.01, epsilon_decay=0.997, 
-                 gamma=0.99, lr=0.0005, batch_size=128):
+    def __init__(self, epsilon=1.0, epsilon_min=0.05, epsilon_decay=0.9995, 
+                 gamma=0.95, lr=0.001, batch_size=64):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.model = DQN().to(self.device)
-        self.target_model = DQN().to(self.device)
-        self.optimizer = optim.Adam(self.model.parameters(), lr=lr, weight_decay=1e-5)
-        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-            self.optimizer, mode='min', factor=0.5, patience=500, verbose=True
-        )
-        self.loss_fn = nn.SmoothL1Loss(reduction='none')
+        self.model = PositionAwareDQN().to(self.device)
+        self.target_model = PositionAwareDQN().to(self.device)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=lr)
+        self.loss_fn = nn.MSELoss()
         
         self.epsilon = epsilon
         self.epsilon_min = epsilon_min
@@ -365,20 +383,24 @@ class BalancedDQNAgent:
         
         self.target_model.load_state_dict(self.model.state_dict())
         
-    def choose_action(self, state, valid_moves, as_player_x=True):
+    def _prepare_input(self, state, player):
+        """Prepare position-aware input for the network"""
+        # Flatten board and add player indicator
+        board_flat = state.flatten()
+        player_indicator = np.array([player])  # 1 for X, -1 for O
+        return np.concatenate([board_flat, player_indicator])
+        
+    def choose_action(self, state, valid_moves, player):
         if not valid_moves:
             return None
             
         if np.random.rand() <= self.epsilon:
             return random.choice(valid_moves)
         
-        # Perspective flipping for O player
-        if as_player_x:
-            input_state = state
-        else:
-            input_state = -state  # Flip perspective for O player
-            
-        state_tensor = torch.FloatTensor(input_state.flatten()).unsqueeze(0).to(self.device)
+        # Prepare input
+        input_features = self._prepare_input(state, player)
+        state_tensor = torch.FloatTensor(input_features).unsqueeze(0).to(self.device)
+        
         with torch.no_grad():
             q_values = self.model(state_tensor).cpu().numpy()[0]
             
@@ -388,9 +410,12 @@ class BalancedDQNAgent:
         best_action = valid_actions[best_idx]
         return (best_action // 3, best_action % 3)
         
-    def remember(self, state, action, reward, next_state, done):
+    def remember(self, state, action, reward, next_state, done, player):
+        # Store experience with player context
+        input_features = self._prepare_input(state, player)
+        next_input_features = self._prepare_input(next_state, player)
         action_idx = action[0] * 3 + action[1]
-        self.memory.append((state, action_idx, reward, next_state, done))
+        self.memory.append((input_features, action_idx, reward, next_input_features, done))
         
     def replay(self):
         if len(self.memory) < self.batch_size:
@@ -399,10 +424,10 @@ class BalancedDQNAgent:
         batch = random.sample(self.memory, self.batch_size)
         states, actions, rewards, next_states, dones = zip(*batch)
         
-        states = torch.FloatTensor(np.array([s.flatten() for s in states])).to(self.device)
+        states = torch.FloatTensor(np.array(states)).to(self.device)
         actions = torch.LongTensor(actions).to(self.device)
         rewards = torch.FloatTensor(rewards).to(self.device)
-        next_states = torch.FloatTensor(np.array([s.flatten() for s in next_states])).to(self.device)
+        next_states = torch.FloatTensor(np.array(next_states)).to(self.device)
         dones = torch.BoolTensor(dones).to(self.device)
         
         current_q_values = self.model(states).gather(1, actions.unsqueeze(1)).squeeze(1)
@@ -411,7 +436,7 @@ class BalancedDQNAgent:
             next_q_values = self.target_model(next_states).max(1)[0]
             target_q_values = rewards + (self.gamma * next_q_values * ~dones)
             
-        loss = self.loss_fn(current_q_values, target_q_values).mean()
+        loss = self.loss_fn(current_q_values, target_q_values)
         
         self.optimizer.zero_grad()
         loss.backward()
@@ -419,7 +444,6 @@ class BalancedDQNAgent:
         self.optimizer.step()
         
         self.loss_history.append(loss.item())
-        self.scheduler.step(loss)
         
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
@@ -430,30 +454,83 @@ class BalancedDQNAgent:
             self.update_target_counter = 0
             
     def save(self, filename):
-        torch.save(self.model.state_dict(), filename)
+        torch.save({
+            'model_state_dict': self.model.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            'epsilon': self.epsilon,
+            'loss_history': self.loss_history
+        }, filename)
         
     def load(self, filename):
-        self.model.load_state_dict(torch.load(filename, map_location=self.device))
+        checkpoint = torch.load(filename, map_location=self.device)
+        self.model.load_state_dict(checkpoint['model_state_dict'])
         self.target_model.load_state_dict(self.model.state_dict())
+        if 'optimizer_state_dict' in checkpoint:
+            self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        if 'epsilon' in checkpoint:
+            self.epsilon = checkpoint['epsilon']
+        if 'loss_history' in checkpoint:
+            self.loss_history = checkpoint['loss_history']
 
 
 # ==========================================
 # TRAINING SYSTEM
 # ==========================================
 
-def train_balanced_ai(num_episodes=10000, save_path="tictactoe_ai.pt"):
-    """Train a balanced AI that can play as both X and O"""
-    print("🎯 Training Balanced TicTacToe AI")
+class TrainingMonitor:
+    """Monitor training progress and performance"""
+    
+    def __init__(self):
+        self.x_wins = self.x_draws = self.x_losses = 0
+        self.o_wins = self.o_draws = self.o_losses = 0
+        self.minimax_test_results = []
+        
+    def record_result(self, result, agent_is_x):
+        if agent_is_x:
+            if result == 1:
+                self.x_wins += 1
+            elif result == -1:
+                self.x_losses += 1
+            else:
+                self.x_draws += 1
+        else:
+            if result == -1:
+                self.o_wins += 1
+            elif result == 1:
+                self.o_losses += 1
+            else:
+                self.o_draws += 1
+    
+    def get_stats(self, episode):
+        total_games = episode + 1
+        x_games = (total_games + 1) // 2
+        o_games = total_games - x_games
+        
+        x_wr = (self.x_wins / x_games * 100) if x_games > 0 else 0
+        x_dr = (self.x_draws / x_games * 100) if x_games > 0 else 0
+        x_lr = (self.x_losses / x_games * 100) if x_games > 0 else 0
+        
+        o_wr = (self.o_wins / o_games * 100) if o_games > 0 else 0
+        o_dr = (self.o_draws / o_games * 100) if o_games > 0 else 0
+        o_lr = (self.o_losses / o_games * 100) if o_games > 0 else 0
+        
+        return {
+            'x_stats': (x_wr, x_dr, x_lr, x_games),
+            'o_stats': (o_wr, o_dr, o_lr, o_games)
+        }
+
+
+def train_improved_ai(num_episodes=15000, save_path="improved_tictactoe_ai.pt", test_interval=2000):
+    """Train an improved AI with better monitoring"""
+    print("🎯 Training Improved TicTacToe AI")
     print("=" * 50)
     print(f"Episodes: {num_episodes}")
-    print("Features: Balanced training (X and O), Strategic rewards, Self-play")
+    print("Features: Position-aware network, Balanced training, Regular validation")
     print("=" * 50)
     
-    agent = BalancedDQNAgent()
-    
-    # Training metrics
-    x_wins = x_draws = x_losses = 0
-    o_wins = o_draws = o_losses = 0
+    agent = ImprovedDQNAgent()
+    monitor = TrainingMonitor()
+    minimax = MinimaxAgent()
     
     start_time = time.time()
     
@@ -464,7 +541,7 @@ def train_balanced_ai(num_episodes=10000, save_path="tictactoe_ai.pt"):
         
         # Alternate agent position (X or O)
         agent_is_x = (episode % 2 == 0)
-        episode_experiences = []
+        agent_player = 1 if agent_is_x else -1
         
         while not done:
             valid_moves = game.get_valid_moves()
@@ -476,53 +553,103 @@ def train_balanced_ai(num_episodes=10000, save_path="tictactoe_ai.pt"):
             
             if agent_turn:
                 # Agent's turn
-                action = agent.choose_action(current_state, valid_moves, as_player_x=agent_is_x)
+                action = agent.choose_action(current_state, valid_moves, agent_player)
                 if action is None:
                     break
                 
                 next_state, reward, done = game.make_move(action, use_advanced_rewards=True)
                 
-                # Store experience with proper perspective
-                if agent_is_x:
-                    stored_state = current_state
-                    stored_next_state = next_state.copy()
-                else:
-                    # Flip perspective for O player
-                    stored_state = -current_state
-                    stored_next_state = -next_state.copy() if not done else next_state.copy()
+                # Adjust reward based on agent's perspective
+                if done and game.winner != 0:  # Someone won
+                    if game.winner == agent_player:
+                        reward = 1.0  # Agent won
+                    else:
+                        reward = -1.0  # Agent lost
                 
-                episode_experiences.append((stored_state, action, reward, stored_next_state, done))
+                agent.remember(current_state, action, reward, next_state, done, agent_player)
                 
             else:
-                # Opponent's turn (self-play)
-                action = agent.choose_action(current_state, valid_moves, as_player_x=not agent_is_x)
+                # Self-play opponent turn
+                opp_player = -agent_player
+                action = agent.choose_action(current_state, valid_moves, opp_player)
                 if action is None:
                     break
                 
                 next_state, reward, done = game.make_move(action, use_advanced_rewards=True)
                 
-                # Store opponent experience
-                if agent_is_x:
-                    stored_state = -current_state
-                    stored_next_state = -next_state.copy() if not done else next_state.copy()
-                    opp_reward = -reward if reward in [10, -10] else reward
-                else:
-                    stored_state = current_state
-                    stored_next_state = next_state.copy()
-                    opp_reward = -reward if reward in [10, -10] else reward
+                # Adjust reward for opponent perspective
+                if done and game.winner != 0:  # Someone won
+                    if game.winner == opp_player:
+                        reward = 1.0  # Opponent won
+                    else:
+                        reward = -1.0  # Opponent lost
                 
-                episode_experiences.append((stored_state, action, opp_reward, stored_next_state, done))
+                agent.remember(current_state, action, reward, next_state, done, opp_player)
             
             state = next_state
-        
-        # Add all experiences to memory
-        for exp in episode_experiences:
-            agent.remember(*exp)
         
         # Train agent
         agent.replay()
         
         # Record results
+        result = game.get_result()
+        monitor.record_result(result, agent_is_x)
+        
+        # Progress reporting and validation
+        if (episode + 1) % 1000 == 0:
+            elapsed = time.time() - start_time
+            stats = monitor.get_stats(episode)
+            
+            print(f"Episode {episode + 1}: ε:{agent.epsilon:.4f} ({elapsed/60:.1f}min)")
+            print(f"  As X: W:{stats['x_stats'][0]:.1f}% D:{stats['x_stats'][1]:.1f}% L:{stats['x_stats'][2]:.1f}% ({stats['x_stats'][3]} games)")
+            print(f"  As O: W:{stats['o_stats'][0]:.1f}% D:{stats['o_stats'][1]:.1f}% L:{stats['o_stats'][2]:.1f}% ({stats['o_stats'][3]} games)")
+        
+        # Validation against Minimax
+        if (episode + 1) % test_interval == 0:
+            print(f"\n🔍 Validation against Minimax...")
+            test_results = quick_minimax_test(agent, minimax, num_games=20)
+            monitor.minimax_test_results.append((episode + 1, test_results))
+            print(f"   vs Minimax: {test_results['overall_non_loss']:.1f}% non-loss rate")
+    
+    # Save model
+    agent.save(save_path)
+    
+    training_time = (time.time() - start_time) / 60
+    print(f"\n🎉 Training completed in {training_time:.1f} minutes")
+    print(f"💾 Model saved: {save_path}")
+    
+    return agent
+
+
+def quick_minimax_test(agent, minimax, num_games=20):
+    """Quick test against Minimax during training"""
+    old_epsilon = agent.epsilon
+    agent.epsilon = 0  # No exploration during testing
+    
+    x_wins = x_draws = x_losses = 0
+    o_wins = o_draws = o_losses = 0
+    
+    for i in range(num_games):
+        game = TicTacToe()
+        agent_is_x = (i % 2 == 0)
+        
+        while not game.game_over:
+            valid_moves = game.get_valid_moves()
+            if not valid_moves:
+                break
+            
+            if (game.current_player == 1 and agent_is_x) or (game.current_player == -1 and not agent_is_x):
+                # Agent's turn
+                player = 1 if agent_is_x else -1
+                action = agent.choose_action(game.get_state(), valid_moves, player)
+            else:
+                # Minimax's turn
+                minimax_player = 1 if not agent_is_x else -1
+                action = minimax.choose_action(game.get_state(), valid_moves, minimax_player)
+            
+            if action:
+                game.make_move(action)
+        
         result = game.get_result()
         if agent_is_x:
             if result == 1:
@@ -538,31 +665,18 @@ def train_balanced_ai(num_episodes=10000, save_path="tictactoe_ai.pt"):
                 o_losses += 1
             else:
                 o_draws += 1
-        
-        # Progress reporting
-        if (episode + 1) % 1000 == 0:
-            elapsed = time.time() - start_time
-            total_games = episode + 1
-            x_games = (total_games + 1) // 2
-            o_games = total_games - x_games
-            
-            x_wr = (x_wins / x_games * 100) if x_games > 0 else 0
-            x_dr = (x_draws / x_games * 100) if x_games > 0 else 0
-            o_wr = (o_wins / o_games * 100) if o_games > 0 else 0
-            o_dr = (o_draws / o_games * 100) if o_games > 0 else 0
-            
-            print(f"Episode {episode + 1}: ε:{agent.epsilon:.4f} ({elapsed/60:.1f}min)")
-            print(f"  As X: W:{x_wr:.1f}% D:{x_dr:.1f}% ({x_games} games)")
-            print(f"  As O: W:{o_wr:.1f}% D:{o_dr:.1f}% ({o_games} games)")
     
-    # Save model
-    agent.save(save_path)
+    agent.epsilon = old_epsilon  # Restore epsilon
     
-    training_time = (time.time() - start_time) / 60
-    print(f"\n🎉 Training completed in {training_time:.1f} minutes")
-    print(f"💾 Model saved: {save_path}")
+    x_non_loss = (x_wins + x_draws) / (num_games // 2) * 100 if num_games > 0 else 0
+    o_non_loss = (o_wins + o_draws) / (num_games // 2) * 100 if num_games > 0 else 0
+    overall_non_loss = (x_wins + x_draws + o_wins + o_draws) / num_games * 100
     
-    return agent
+    return {
+        'x_non_loss': x_non_loss,
+        'o_non_loss': o_non_loss,
+        'overall_non_loss': overall_non_loss
+    }
 
 
 # ==========================================
@@ -575,11 +689,11 @@ def analyze_ai_performance(model_path, num_games=100):
     print("=" * 40)
     
     try:
-        agent = BalancedDQNAgent(epsilon=0)
+        agent = ImprovedDQNAgent(epsilon=0)
         agent.load(model_path)
         print(f"✅ Loaded model: {model_path}")
-    except:
-        print(f"❌ Could not load model: {model_path}")
+    except Exception as e:
+        print(f"❌ Could not load model: {model_path} - {e}")
         return
     
     minimax = MinimaxAgent()
@@ -596,9 +710,9 @@ def analyze_ai_performance(model_path, num_games=100):
                 break
             
             if game.current_player == 1:  # AI as X
-                action = agent.choose_action(game.get_state(), valid_moves, as_player_x=True)
+                action = agent.choose_action(game.get_state(), valid_moves, 1)
             else:  # Minimax as O
-                action = minimax.choose_action(game.get_state(), valid_moves)
+                action = minimax.choose_action(game.get_state(), valid_moves, -1)
             
             if action:
                 game.make_move(action)
@@ -623,9 +737,9 @@ def analyze_ai_performance(model_path, num_games=100):
                 break
             
             if game.current_player == 1:  # Minimax as X
-                action = minimax.choose_action(game.get_state(), valid_moves)
+                action = minimax.choose_action(game.get_state(), valid_moves, 1)
             else:  # AI as O
-                action = agent.choose_action(game.get_state(), valid_moves, as_player_x=False)
+                action = agent.choose_action(game.get_state(), valid_moves, -1)
             
             if action:
                 game.make_move(action)
@@ -669,17 +783,18 @@ def analyze_ai_performance(model_path, num_games=100):
 # INTERACTIVE GAMEPLAY
 # ==========================================
 
-def play_vs_ai(model_path="tictactoe_ai.pt"):
+def play_vs_ai(model_path="improved_tictactoe_ai.pt"):
     """Play against the AI with a simple text interface"""
     print("🎮 Play vs AI")
     print("=" * 30)
     
     try:
-        agent = BalancedDQNAgent(epsilon=0)
+        agent = ImprovedDQNAgent(epsilon=0)
         agent.load(model_path)
         print(f"✅ AI loaded from {model_path}")
-    except:
-        print("❌ Could not load AI model. Train one first!")
+    except Exception as e:
+        print(f"❌ Could not load AI model: {e}")
+        print("Train one first using the train command!")
         return
     
     while True:
@@ -688,6 +803,8 @@ def play_vs_ai(model_path="tictactoe_ai.pt"):
         # Choose who goes first
         human_first = input("Do you want to go first? (y/n): ").lower() == 'y'
         human_is_x = human_first
+        human_player = 1 if human_is_x else -1
+        ai_player = -human_player
         
         print(f"\nYou are {'X' if human_is_x else 'O'}")
         print(f"AI is {'O' if human_is_x else 'X'}")
@@ -697,7 +814,7 @@ def play_vs_ai(model_path="tictactoe_ai.pt"):
             print_board(game.board)
             print()
             
-            human_turn = (game.current_player == 1 and human_is_x) or (game.current_player == -1 and not human_is_x)
+            human_turn = (game.current_player == human_player)
             
             if human_turn:
                 # Human's turn
@@ -717,7 +834,7 @@ def play_vs_ai(model_path="tictactoe_ai.pt"):
                 print("AI thinking...")
                 time.sleep(0.5)
                 valid_moves = game.get_valid_moves()
-                action = agent.choose_action(game.get_state(), valid_moves, as_player_x=not human_is_x)
+                action = agent.choose_action(game.get_state(), valid_moves, ai_player)
                 if action:
                     game.make_move(action)
                     print(f"AI plays: {action[0]},{action[1]}")
@@ -728,7 +845,7 @@ def play_vs_ai(model_path="tictactoe_ai.pt"):
         
         if result == 0:
             print("🤝 It's a draw!")
-        elif (result == 1 and human_is_x) or (result == -1 and not human_is_x):
+        elif result == human_player:
             print("🎉 You win!")
         else:
             print("🤖 AI wins!")
@@ -748,27 +865,27 @@ def print_board(board):
         print(row)
 
 
-def ai_battle(model1_path="tictactoe_ai.pt", model2_path=None, num_games=100):
+def ai_battle(model1_path="improved_tictactoe_ai.pt", model2_path=None, num_games=100):
     """AI vs AI battle"""
     print("⚔️  AI Battle Arena")
     print("=" * 30)
     
     # Load agents
     try:
-        agent1 = BalancedDQNAgent(epsilon=0)
+        agent1 = ImprovedDQNAgent(epsilon=0)
         agent1.load(model1_path)
         print(f"✅ Agent 1 loaded: {model1_path}")
-    except:
-        print(f"❌ Could not load Agent 1: {model1_path}")
+    except Exception as e:
+        print(f"❌ Could not load Agent 1: {model1_path} - {e}")
         return
     
     if model2_path:
         try:
-            agent2 = BalancedDQNAgent(epsilon=0)
+            agent2 = ImprovedDQNAgent(epsilon=0)
             agent2.load(model2_path)
             print(f"✅ Agent 2 loaded: {model2_path}")
-        except:
-            print(f"❌ Could not load Agent 2: {model2_path}")
+        except Exception as e:
+            print(f"❌ Could not load Agent 2: {model2_path} - {e}")
             return
     else:
         # Use Minimax as opponent
@@ -785,21 +902,23 @@ def ai_battle(model1_path="tictactoe_ai.pt", model2_path=None, num_games=100):
         
         # Alternate who goes first
         agent1_is_x = (game_num % 2 == 0)
+        agent1_player = 1 if agent1_is_x else -1
+        agent2_player = -agent1_player
         
         while not game.game_over:
             valid_moves = game.get_valid_moves()
             if not valid_moves:
                 break
             
-            agent1_turn = (game.current_player == 1 and agent1_is_x) or (game.current_player == -1 and not agent1_is_x)
+            agent1_turn = (game.current_player == agent1_player)
             
             if agent1_turn:
-                action = agent1.choose_action(game.get_state(), valid_moves, as_player_x=agent1_is_x)
+                action = agent1.choose_action(game.get_state(), valid_moves, agent1_player)
             else:
-                if hasattr(agent2, 'choose_action') and len(agent2.__class__.__name__) > 10:  # DQN agent
-                    action = agent2.choose_action(game.get_state(), valid_moves, as_player_x=not agent1_is_x)
+                if hasattr(agent2, 'choose_action') and hasattr(agent2, 'model'):  # DQN agent
+                    action = agent2.choose_action(game.get_state(), valid_moves, agent2_player)
                 else:  # Minimax agent
-                    action = agent2.choose_action(game.get_state(), valid_moves)
+                    action = agent2.choose_action(game.get_state(), valid_moves, agent2_player)
             
             if action:
                 game.make_move(action)
@@ -808,7 +927,7 @@ def ai_battle(model1_path="tictactoe_ai.pt", model2_path=None, num_games=100):
         result = game.get_result()
         if result == 0:
             agent1_draws += 1
-        elif (result == 1 and agent1_is_x) or (result == -1 and not agent1_is_x):
+        elif result == agent1_player:
             agent1_wins += 1
         else:
             agent1_losses += 1
@@ -837,17 +956,17 @@ def ai_battle(model1_path="tictactoe_ai.pt", model2_path=None, num_games=100):
 
 def main():
     """Main interactive interface"""
-    parser = argparse.ArgumentParser(description="TicTacToe AI - Complete Implementation")
+    parser = argparse.ArgumentParser(description="TicTacToe AI - Improved Implementation")
     parser.add_argument('command', nargs='?', choices=['train', 'play', 'battle', 'analyze'], 
                        help='Command to run')
-    parser.add_argument('--episodes', type=int, default=10000, help='Training episodes')
-    parser.add_argument('--model', default='tictactoe_ai.pt', help='Model file path')
+    parser.add_argument('--episodes', type=int, default=15000, help='Training episodes')
+    parser.add_argument('--model', default='improved_tictactoe_ai.pt', help='Model file path')
     parser.add_argument('--games', type=int, default=100, help='Number of test games')
     
     args = parser.parse_args()
     
     if args.command == 'train':
-        train_balanced_ai(args.episodes, args.model)
+        train_improved_ai(args.episodes, args.model)
     elif args.command == 'play':
         play_vs_ai(args.model)
     elif args.command == 'battle':
@@ -856,7 +975,7 @@ def main():
         analyze_ai_performance(args.model, args.games)
     else:
         # Interactive menu
-        print("🎮 TicTacToe AI - Complete Implementation")
+        print("🎮 TicTacToe AI - Improved Implementation")
         print("=" * 50)
         print("1. Train new AI")
         print("2. Play vs AI")
@@ -869,8 +988,8 @@ def main():
                 choice = input("\nEnter choice (1-5): ").strip()
                 
                 if choice == '1':
-                    episodes = int(input("Training episodes (default 10000): ") or "10000")
-                    train_balanced_ai(episodes)
+                    episodes = int(input("Training episodes (default 15000): ") or "15000")
+                    train_improved_ai(episodes)
                 elif choice == '2':
                     play_vs_ai()
                 elif choice == '3':
@@ -878,7 +997,7 @@ def main():
                     ai_battle(num_games=games)
                 elif choice == '4':
                     games = int(input("Number of test games (default 100): ") or "100")
-                    analyze_ai_performance("tictactoe_ai.pt", games)
+                    analyze_ai_performance("improved_tictactoe_ai.pt", games)
                 elif choice == '5':
                     print("👋 Goodbye!")
                     break
