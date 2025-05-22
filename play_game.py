@@ -55,7 +55,7 @@ def play_game():
             # Load the trained model
             try:
                 ai.load_model("diverse_q_table_O.pkl")
-            except:
+            except FileNotFoundError:
                 print("⚠️  Warning: Could not load trained model. AI will play randomly.")
                 input("Press Enter to continue...")
             
@@ -80,7 +80,7 @@ def play_game():
             # Load the trained model
             try:
                 ai.load_model("diverse_q_table_X.pkl")
-            except:
+            except FileNotFoundError:
                 print("⚠️  Warning: Could not load trained model. AI will play randomly.")
                 input("Press Enter to continue...")
             
@@ -106,7 +106,7 @@ def play_game():
             try:
                 ai_x.load_model("diverse_q_table_X.pkl")
                 ai_o.load_model("diverse_q_table_O.pkl")
-            except:
+            except FileNotFoundError:
                 print("⚠️  Warning: Could not load trained models.")
             
             winner = play(game, ai_x, ai_o, print_game=True)

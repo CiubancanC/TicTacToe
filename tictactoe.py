@@ -560,28 +560,3 @@ if __name__ == '__main__':
             play(TicTacToe(), ai_player, human_player, print_game=True)
         else:
             print("Invalid choice. Please enter 1, 2, or 3.")
-
-    # Play against human
-    print("\n" + "="*50)
-    print("READY TO PLAY!")
-    print("="*50)
-    
-    while True:
-        choice = input("\nChoose your role:\n1. Play as X (go first)\n2. Play as O (go second)\n3. Quit\nEnter choice (1/2/3): ")
-        
-        if choice == '3':
-            break
-        elif choice == '1':
-            human_player = HumanPlayer('X')
-            ai_player = QLearningAgent('O', train_mode=False)
-            ai_player.load_model("diverse_q_table_O.pkl")
-            print("\nYou are X (going first), AI is O")
-            play(TicTacToe(), human_player, ai_player, print_game=True)
-        elif choice == '2':
-            human_player = HumanPlayer('O')
-            ai_player = QLearningAgent('X', train_mode=False)
-            ai_player.load_model("diverse_q_table_X.pkl")
-            print("\nAI is X (going first), you are O")
-            play(TicTacToe(), ai_player, human_player, print_game=True)
-        else:
-            print("Invalid choice. Please enter 1, 2, or 3.")

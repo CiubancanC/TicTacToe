@@ -23,7 +23,7 @@ def init_game(human_plays_as):
     try:
         game_state['ai_player'].load_model(f"diverse_q_table_{ai_letter}.pkl")
         print(f"Loaded AI model for {ai_letter}")
-    except:
+    except FileNotFoundError:
         print(f"Warning: Could not load trained model for {ai_letter}")
     
     # Set starting turn
@@ -115,4 +115,4 @@ def get_state():
     })
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=False, port=5000)
