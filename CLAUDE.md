@@ -4,166 +4,120 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Tic Tac Toe game with multiple AI implementations. The project features:
-- A playable Tic Tac Toe game with PyGame
-- A Deep Q-Network (DQN) agent that learns to play through self-play
-- A perfect Minimax AI that never loses
-- Multiple gameplay modes: AI training, Human vs AI, and Human vs Human
+This is a single-file TicTacToe AI implementation featuring:
+- Complete TicTacToe game with PyTorch-based Deep Q-Network (DQN) AI
+- Perfect Minimax AI that never loses 
+- Position-aware neural network that can play as both X and O
+- Interactive gameplay modes and AI training capabilities
+- Performance analysis tools for evaluating AI strength
 
 ## Project Structure
 
-### Core Source Code
-- `src/game/tictactoe.py`: Contains the core game logic and GUI implementation
-  - `TicTacToe`: Game logic class that manages board state, moves, and win conditions
-  - `TicTacToeGUI`: PyGame interface for the game
-- `src/ai/agent.py`: Implements the reinforcement learning agent
-  - `DQN`: Neural network model architecture 
-  - `PrioritizedReplayBuffer`: Memory storage with prioritized experience replay
-  - `DQNAgent`: Agent that learns using Double DQN with prioritized experience replay
-- `src/ai/minimax.py`: Implements the perfect Minimax AI
-  - `MinimaxAgent`: Agent that uses the minimax algorithm with alpha-beta pruning
-  - Support functions for board evaluation and move selection
-- `src/main.py`: Main script with game modes and training loop
-
-### Scripts and Utilities
-- `run_game.py`: **ENHANCED** Interactive showcase with AI vs AI battles
-- `scripts/train_improved_ai.py`: Script to train the original DQN agent
-- `scripts/train_enhanced_ai.py`: **NEW** Enhanced training with strategic rewards & self-play archives
-- `scripts/train_strategic_showcase.py`: **NEW** Focused strategic training demonstration
-- `scripts/test_enhanced_features.py`: Quick test script for enhanced features
-- `scripts/ai_battle.py`: **NEW** Quick AI tournament and model comparison
-- `scripts/evaluate_enhanced_ai.py`: **NEW** Strategic capability testing
-- `scripts/play_vs_ai.py`: Script to play against the trained DQN AI
-- `scripts/play_vs_perfect_ai.py`: Script to play against the perfect Minimax AI
-
-### Data and Documentation
-- `models/`: Directory where trained models are saved with **method annotations**
-- `visualizations/`: Training plots and performance charts
-- `docs/`: Additional documentation and README variants
-  - `MODEL_ANNOTATIONS.md`: **NEW** Complete guide to training method naming system
-- **🏷️ Model Naming**: Enhanced system clearly identifies training methods
+**Core Files:**
+- `tictactoe.py`: **CONSOLIDATED** complete implementation with working training, gameplay, and analysis
+- `requirements.txt`: Python dependencies (PyTorch, NumPy, Matplotlib, Pygame)
+- `optimized_tictactoe_ai.pt`: Pre-trained DQN model (best available)
+- `working_tictactoe_ai.pt`: Model trained by current implementation
+- `venv/`: Virtual environment
 
 ## Common Commands
 
 ### Setup and Installation
 
-Create a virtual environment and install dependencies:
+Create virtual environment and install dependencies:
 ```bash
 python3 -m venv venv
-source venv/bin/activate
-venv/bin/pip install -r requirements.txt
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
 ```
 
 ### Running the Game
 
-There are several ways to run the game:
-
-1. **Main script** (interactive menu):
+**Interactive menu (recommended):**
 ```bash
-python3 src/main.py
+python3 tictactoe.py
 ```
 
-2. **Use the interactive run_game.py menu** (recommended):
+**Direct commands (all working):**
 ```bash
-python3 run_game.py
-```
-Features:
-- 🤖 **Training Options**: Original DQN, Enhanced DQN, Quick test
-- 🎯 **Play vs AI**: Select from trained models, Perfect Minimax AI  
-- ⚔️ **AI vs AI Battles**: DQN tournaments, DQN vs Minimax competitions
-- 👥 **Human Modes**: Human vs Human, Model comparison
-- 📊 **Model Management**: List, select, and compare different trained models
+# Train a new AI (800 episodes by default, completes in ~1 minute)
+python3 tictactoe.py train --episodes 800
 
-Or use legacy command line modes:
-```bash
-python3 run_game.py [mode]
-```
-Legacy modes: 1 (Train), 2 (Play vs DQN), 3 (Human vs Human), 4 (Play vs Minimax)
+# Play against the trained AI
+python3 tictactoe.py play
 
-3. **Train the DQN AI** (choose one):
-```bash
-# Original DQN training
-python3 scripts/train_improved_ai.py
+# AI vs AI battle (100 games)
+python3 tictactoe.py battle --games 100
 
-# Enhanced DQN with strategic rewards & self-play archives
-python3 scripts/train_enhanced_ai.py
-
-# Quick test of enhanced features
-python3 scripts/test_enhanced_features.py
-
-# AI vs AI battles
-python3 scripts/ai_battle.py
+# Analyze AI performance vs Minimax
+python3 tictactoe.py analyze --games 100
 ```
 
-4. **Play against the trained DQN AI**:
-```bash
-python3 scripts/play_vs_ai.py
-```
+## Architecture Overview
 
-5. **Play against the perfect Minimax AI**:
-```bash
-python3 scripts/play_vs_perfect_ai.py
-```
+### Core Classes
 
-### AI Implementations
+- `TicTacToe`: Game logic with strategic reward shaping for training
+- `ImprovedDQNAgent`: Position-aware DQN with 4-layer neural network (input includes player position)
+- `MinimaxAgent`: Perfect AI using minimax algorithm with alpha-beta pruning
+- `TrainingMonitor`: Tracks training progress and performance metrics
 
-#### DQN Reinforcement Learning Agent
+### Key Features
 
-The enhanced DQN agent includes:
+**Position-Aware Training:**
+- Network receives board state + player indicator (X=1, O=-1)
+- Single model handles both X and O positions effectively
+- Alternating position training for balanced gameplay
 
-**Core Hyperparameters:**
-- Learning rate: 0.0005 with adaptive scheduling
-- Batch size: 128
-- Epsilon decay: 0.997 (slower exploration decay)
-- Gamma (discount factor): 0.99
-- Target network update frequency: Every 5 steps
-- Prioritized replay with alpha=0.6, beta=0.4
+**Strategic Reward Engineering:**
+- Center control bonus: +0.1
+- Corner control bonus: +0.05  
+- Fork creation (multiple win paths): +0.3
+- Blocking opponent wins: +0.2
+- Creating win threats: +0.2
 
-**🆕 Enhanced Reward Engineering:**
-- **Win rewards**: 10 (vs previous 1) - encourages aggressive winning
-- **Draw rewards**: 1 (vs previous 0.5) - values defensive play
-- **Strategic move bonuses**: 
-  - Center control: +0.5
-  - Corner control: +0.3
-  - Fork creation: +2.0 (two ways to win)
-  - Blocking opponent wins: +1.5
-  - Creating win threats: +1.0
+**Training Process:**
+- Double DQN with experience replay
+- Epsilon decay from 1.0 to 0.05
+- Self-play with position alternation
+- Regular validation against Minimax
 
-**🆕 Self-Play with Historical Archives:**
-- Maintains up to 5 historical opponent models
-- Gradually increases historical opponent usage (30% → 70%)
-- Weighted selection favoring recent opponents
-- Archives models every 1000 episodes
+## Performance Targets
 
-#### Minimax Perfect AI
+**AI vs Minimax benchmarks:**
+- Excellent: 60%+ non-loss rate (draws + wins) - very difficult against perfect play
+- Good: 30%+ non-loss rate  
+- Fair: 15%+ non-loss rate
+- Baseline: 5%+ non-loss rate
 
-The Minimax agent:
-- Uses the minimax algorithm with alpha-beta pruning
-- Searches the entire game tree to find optimal moves
-- Will never lose and always wins when possible
-- Does not require training (deterministic algorithm)
+**Realistic expectations:**
+- **Current implementation**: ~20-35% vs Minimax (trains in ~1 minute)
+- Quick training (200 episodes): ~25-35% non-loss rate
+- Full training (800 episodes): ~30-40% non-loss rate
 
-### Project Dependencies
+Note: Achieving high performance against perfect Minimax AI is extremely challenging. The AI learns strategic patterns and can achieve decent performance through progressive training against increasingly difficult opponents.
+
+## Development Notes
+
+**Model Loading/Saving:**
+- Models are saved as PyTorch checkpoints with full training state
+- Automatic model path defaults to `improved_tictactoe_ai.pt`
+- Training automatically saves models upon completion
+
+**Gameplay Interface:**
+- Text-based coordinate system: row,col (0-2 range)
+- Board display uses X, O, and . symbols
+- Interactive prompts for human players
+
+**Training Validation:**
+- Built-in testing against Minimax every 2000 episodes
+- Performance tracking for both X and O positions
+- Training diagnostics show win/draw/loss rates
+
+## Key Dependencies
 
 - Python 3.8+
-- PyGame
-- PyTorch
-- NumPy
-- Matplotlib
-
-## Key Concepts
-
-- Reinforcement Learning (DQN):
-  - The DQN agent learns through trial and error
-  - State representation is the flattened 3x3 board as input to the neural network
-  - Actions are the 9 possible move positions
-  - Rewards: +1 for winning, 0.5 for a draw, -1 for losing, -10 for invalid moves
-  - Double DQN to reduce overestimation bias in Q-values
-  - Prioritized Experience Replay to focus learning on important transitions
-
-- Minimax Algorithm:
-  - A perfect algorithm for zero-sum games like Tic Tac Toe
-  - Recursively evaluates all possible future states
-  - Assumes optimal play from both players
-  - Alpha-beta pruning optimizes the search by skipping irrelevant branches
-  - Guarantees optimal play (will never lose in Tic Tac Toe)
+- PyTorch: Neural network training and inference
+- NumPy: Array operations and game state management
+- Matplotlib: Training progress visualization (optional)
+- Pygame: Listed in requirements (unused in current implementation)
