@@ -60,11 +60,11 @@ This is a TicTacToe game implementation with Q-Learning agents. The main compone
 
 ## Dependencies
 
-The project uses standard Python libraries plus:
-- `pygame` - Not actively used in current code but listed in requirements
-- `numpy` - Listed but not used in current implementation
-- `torch` - Listed but not used in current implementation
-- `matplotlib` - Listed but not used in current implementation
-- `flask` - Listed but not used in current implementation
+The project has minimal dependencies:
+- **Flask** (3.0.0) - Required only for the web interface (`app.py`)
+- **Python Standard Library** - The core game and training (`tictactoe.py`) only uses:
+  - `random` - For random moves and epsilon-greedy exploration
+  - `pickle` - For saving/loading Q-tables
+  - `math` - For minimax calculations
 
-Note: The actual implementation only uses Python standard library (random, pickle, math).
+Note: The console interfaces (`tictactoe.py` and `play_game.py`) work with just a standard Python installation.
